@@ -1,49 +1,51 @@
 const analyticsService = require('../services/analyticsService');
+const { AppError } = require('../middleware/errorHandler');
 
-exports.createMetric = async (req, res) => {
+exports.createMetric = async (req, res, next) => {
   try {
-    const { service, metric, value, metadata } = req.body;
-
-    if (!service || !metric || value === undefined) {
-      return res.status(400).json({
-        success: false,
-        message: 'service, metric and value are required'
-      });
-    }
-
-    const saved = await analyticsService.saveMetric({
-      service,
-      metric,
-      value: Number(value),
-      metadata: metadata || {}
-    });
-
+    const saved = await analyticsService.saveMetric(req.body);
     res.status(201).json({
       success: true,
+      message: 'Metric saved successfully',
       data: saved
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: 'Failed to save metric' });
+    next(error);
   }
 };
 
-exports.getMetrics = async (req, res) => {
+exports.getMetrics = async (req, res, next) => {
   try {
-    const metrics = await analyticsService.getMetrics(req.query);
-    res.json({ success: true, count: metrics.length, data: metrics });
+    const result = await analyticsService.getMetrics(req.query);
+    res.json({
+      success: true,
+      ...result
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: 'Failed to fetch metrics' });
+    next(error);
   }
 };
 
-exports.getStats = async (req, res) => {
+exports.getStats = async (req, res, next) => {
   try {
     const stats = await analyticsService.getStats(req.query);
-    res.json({ success: true, data: stats });
+    res.json({
+      success: true,
+      data: stats
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: 'Failed to fetch stats' });
+    next(error);
+  }
+};
+
+exports.getServices = async (req, res, next) => {
+  try {
+    const services = await analyticsService.getServiceSummary();
+    res.json({
+      success: true,
+      data: services
+    });
+  } catch (error) {
+    next(error);
   }
 };
