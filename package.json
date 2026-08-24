@@ -1,27 +1,40 @@
 {
   "name": "analytics-service",
   "version": "1.0.0",
-  "description": "Central metrics collection & aggregation service for SKONGA AI microservices",
+  "description": "Production-ready metrics collection & aggregation service for the SKONGA AI ecosystem",
   "main": "src/app.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "test": "jest --detectOpenHandles --forceExit"
+    "test": "jest --detectOpenHandles --forceExit --coverage",
+    "lint": "eslint src/**/*.js",
+    "lint:fix": "eslint src/**/*.js --fix"
   },
+  "keywords": ["analytics", "metrics", "monitoring", "microservices", "skonga-ai"],
+  "author": "SKONGA AI Team",
+  "license": "MIT",
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
+    "express-rate-limit": "^7.4.0",
     "helmet": "^7.1.0",
+    "joi": "^17.13.3",
     "mongoose": "^8.6.0",
-    "morgan": "^1.10.0"
+    "winston": "^3.14.2"
   },
   "devDependencies": {
+    "eslint": "^8.57.0",
     "jest": "^29.7.0",
     "nodemon": "^3.1.4",
     "supertest": "^7.0.0"
   },
   "jest": {
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "coverageDirectory": "coverage",
+    "collectCoverageFrom": ["src/**/*.js", "!src/app.js"]
   }
 }
