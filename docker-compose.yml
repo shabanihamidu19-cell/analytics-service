@@ -1,0 +1,29 @@
+version: "3.8"
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: analytics-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - analytics_mongo_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: analytics_db
+
+  analytics:
+    build: .
+    container_name: analytics-service
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+      NODE_ENV: production
+      MONGODB_URI: mongodb://mongo:27017/analytics_db
+    depends_on:
+      - mongo
+
+volumes:
+  analytics_mongo_data:
