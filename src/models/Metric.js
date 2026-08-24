@@ -5,12 +5,14 @@ const metricSchema = new mongoose.Schema(
     service: {
       type: String,
       required: true,
+      trim: true,
       index: true
     },
     metric: {
       type: String,
       required: true,
-      enum: ['request_count', 'error_rate', 'response_time', 'custom']
+      enum: ['request_count', 'error_rate', 'response_time', 'custom'],
+      index: true
     },
     value: {
       type: Number,
@@ -26,10 +28,15 @@ const metricSchema = new mongoose.Schema(
       default: {}
     }
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    // TTL index can be added later for automatic retention
+  }
 );
 
-// Compound index for common queries
+// Compound indexes for common query patterns
 metricSchema.index({ service: 1, timestamp: -1 });
+metricSchema.index({ service: 1, metric: 1, timestamp: -1 });
+metricSchema.index({ timestamp: -1 });
 
 module.exports = mongoose.model('Metric', metricSchema);
