@@ -2,42 +2,84 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const config = require('./config');
 const logger = require('./utils/logger');
 const analyticsRoutes = require('./routes/analyticsRoutes');
+const { errorHandler, notFound } = require('./middleware/errorHandler');
 
 const app = express();
 
-// Middleware
+// Security & parsing
 app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
-app.use(logger);
+app.use(express.urlencoded({ extended: true }));
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: config.rateLimit.windowMs,
+  max: config.rateLimit.max,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many requests, please try again later' }
+});
+app.use(limiter);
+
+// Simple request logging
+app.use((req, res, next) => {
+  logger.info(`${req.method} ${req.originalUrl}`);
+  next();
+});
 
 // Routes
 app.use('/analytics', analyticsRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'analytics-service' });
+  const dbState = mongoose.connection.readyState;
+  const isHealthy = dbState === 1;
+
+  res.status(isHealthy ? 200 : 503).json({
+    status: isHealthy ? 'ok' : 'degraded',
+    service: 'analytics-service',
+    timestamp: new Date().toISOString(),
+    database: isHealthy ? 'connected' : 'disconnected'
+  });
 });
 
-// 404
-app.use((req, res) => {
-  res.status(404).json({ success: false, message: 'Route not found' });
-});
+// 404 + Error handler
+app.use(notFound);
+app.use(errorHandler);
 
-// Connect DB & start server
 async function start() {
   try {
     await mongoose.connect(config.mongoUri);
-    console.log('MongoDB connected');
+    logger.info('MongoDB connected');
 
-    app.listen(config.port, () => {
-      console.log(`Analytics Service running on port ${config.port}`);
+    const server = app.listen(config.port, () => {
+      logger.info(`Analytics Service running on port ${config.port} [${config.nodeEnv}]`);
     });
+
+    // Graceful shutdown
+    const shutdown = async (signal) => {
+      logger.info(`${signal} received. Shutting down gracefully...`);
+      server.close(async () => {
+        await mongoose.connection.close();
+        logger.info('Process terminated');
+        process.exit(0);
+      });
+
+      setTimeout(() => {
+        logger.error('Forced shutdown after timeout');
+        process.exit(1);
+      }, 10000);
+    };
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
   } catch (err) {
-    console.error('Failed to start:', err);
+    logger.error('Failed to start service', { error: err.message, stack: err.stack });
     process.exit(1);
   }
 }
@@ -46,4 +88,4 @@ if (require.main === module) {
   start();
 }
 
-module.exports = app; // for tests
+module.exports = app;
